@@ -457,12 +457,6 @@ POST   /api/upload                 - Upload image to Cloudinary
 
 ---
 
-## 📸 Screenshots
-
-*(Add screenshots here of key features like AI Workout Plans, PR Tracking charts, Social Feed, Friends page, etc.)*
-
----
-
 ## 🐛 Troubleshooting
 
 ### Cloudinary Images Not Loading
@@ -489,33 +483,6 @@ POST   /api/upload                 - Upload image to Cloudinary
 - Ensure `recharts` is installed: `npm install recharts`
 - PR needs at least 2 data points for line chart
 - Check browser console for errors
-
----
-
-## 🚀 Future Enhancements
-
-- [ ] Weekly progression in AI workout plans
-- [ ] Exercise video demonstrations
-- [ ] Alternative exercise suggestions
-- [ ] Real-time notifications
-- [ ] Mobile app (React Native)
-- [ ] Integration with fitness wearables
-- [ ] Community workout templates
-- [ ] Meal planning with AI
-- [ ] Export data to CSV/PDF
-- [ ] Dark mode toggle
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ---
 

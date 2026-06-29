@@ -1,10 +1,12 @@
 import axios from 'axios';
 
-// Prefer Vite env var if provided, otherwise use relative '/api' to work with Vite dev proxy
+// Prefer Vite env var if provided, otherwise use the local proxy in dev and the Vercel backend prefix in production.
 const API_URL =
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
     ? import.meta.env.VITE_API_URL
-    : '/api';
+    : ((typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV)
+      ? '/api'
+      : '/_/backend/api');
 
 // Create axios instance
 const api = axios.create({

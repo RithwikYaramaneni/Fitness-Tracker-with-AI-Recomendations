@@ -83,16 +83,45 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/fitness-nutrition';
 
-mongoose.connect(MONGODB_URI)
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
+let mongoConnectionPromise;
+
+const connectToMongo = () => {
+  if (mongoose.connection.readyState === 1) {
+    return Promise.resolve();
+  }
+
+  if (!mongoConnectionPromise) {
+    mongoConnectionPromise = mongoose.connect(MONGODB_URI)
+      .then(() => {
+        console.log('✅ Connected to MongoDB');
+      })
+      .catch((error) => {
+        mongoConnectionPromise = undefined;
+        throw error;
+      });
+  }
+
+  return mongoConnectionPromise;
+};
+
+const startServer = async () => {
+  try {
+    await connectToMongo();
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
-  })
-  .catch((error) => {
+  } catch (error) {
     console.error('❌ MongoDB connection error:', error);
     process.exit(1);
+  }
+};
+
+if (require.main === module) {
+  startServer();
+} else {
+  connectToMongo().catch((error) => {
+    console.error('❌ MongoDB connection error:', error);
   });
+}
 
 module.exports = app;

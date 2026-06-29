@@ -126,6 +126,33 @@ export const friendsAPI = {
   searchUsers: (query) => api.get('/friends/search', { params: { query } })
 };
 
+// Upload APIs
+export const uploadAPI = {
+  uploadImage: (file) => {
+    const formData = new FormData();
+    console.log('Uploading file:', file.name, file.size, file.type);
+    formData.append('image', file);
+    
+    // Create a new instance without JSON headers for file upload
+    const fileApi = axios.create({
+      baseURL: API_URL
+    });
+    
+    // Add token to requests
+    fileApi.interceptors.request.use(
+      (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      }
+    );
+    
+    return fileApi.post('/upload', formData);
+  }
+};
+
 // AI Food APIs
 export const aiAPI = {
   generateFood: (prefs) => api.post('/ai/food', prefs),

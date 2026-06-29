@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaHeart, FaRegHeart, FaComment, FaTrash, FaImage } from 'react-icons/fa';
-import { postsAPI } from '../services/api';
+import { FaHeart, FaRegHeart, FaComment, FaTrash, FaImage, FaSpinner, FaUserFriends } from 'react-icons/fa';
+import { postsAPI, uploadAPI } from '../services/api';
 import { format } from 'date-fns';
 
 const SocialFeed = () => {
@@ -9,10 +9,12 @@ const SocialFeed = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [commentText, setCommentText] = useState({});
   const [newPost, setNewPost] = useState({
-    imageUrl: '',
+    imageFile: null,
+    imagePreview: null,
     caption: '',
     workoutType: 'other'
   });
+  const [uploading, setUploading] = useState(false);
   const currentUser = JSON.parse(localStorage.getItem('user'));
 
   useEffect(() => {
@@ -32,23 +34,77 @@ const SocialFeed = () => {
     }
   };
 
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file');
+        return;
+      }
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size must be less than 5MB');
+        return;
+      }
+      
+      setNewPost({ ...newPost, imageFile: file });
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewPost(prev => ({ ...prev, imagePreview: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleCreatePost = async (e) => {
     e.preventDefault();
-    if (!newPost.imageUrl) {
-      alert('Please provide an image URL');
+    if (!newPost.imageFile) {
+      alert('Please select an image');
       return;
     }
 
     try {
-      const response = await postsAPI.createPost(newPost);
+      setUploading(true);
+      
+      // Upload image to Cloudinary
+      const uploadResponse = await uploadAPI.uploadImage(newPost.imageFile);
+      
+      if (!uploadResponse.data.success) {
+        console.error('Upload response:', uploadResponse.data);
+        alert('Failed to upload image: ' + (uploadResponse.data.message || 'Unknown error'));
+        setUploading(false);
+        return;
+      }
+
+      const imageUrl = uploadResponse.data.data.url;
+
+      // Create post with uploaded image URL
+      const response = await postsAPI.createPost({
+        imageUrl,
+        caption: newPost.caption,
+        workoutType: newPost.workoutType
+      });
+      
       if (response.data.success) {
         setShowCreateModal(false);
-        setNewPost({ imageUrl: '', caption: '', workoutType: 'other' });
+        setNewPost({
+          imageFile: null,
+          imagePreview: null,
+          caption: '',
+          workoutType: 'other'
+        });
         fetchFeed();
+      } else {
+        alert('Failed to create post: ' + (response.data.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error creating post:', error);
-      alert('Failed to create post');
+      alert('Error: ' + (error.response?.data?.message || error.message || 'Failed to create post'));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -101,7 +157,10 @@ const SocialFeed = () => {
     <div className="max-w-3xl mx-auto p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Social Feed</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Social Feed</h1>
+          <p className="text-sm text-gray-500 mt-1">Your posts and your friends' posts</p>
+        </div>
         <button
           onClick={() => setShowCreateModal(true)}
           className="btn-primary flex items-center"
@@ -123,7 +182,15 @@ const SocialFeed = () => {
               {/* Post Header */}
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="font-semibold">{post.userId?.name || 'User'}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">{post.userId?.name || 'User'}</h3>
+                    {post.userId?._id !== currentUser?._id && (
+                      <span className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                        <FaUserFriends size={12} />
+                        Friend
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-500">
                     {format(new Date(post.createdAt), 'MMM d, yyyy • h:mm a')}
                   </p>
@@ -224,23 +291,42 @@ const SocialFeed = () => {
       {/* Create Post Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-lg w-full p-6">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-96 overflow-y-auto">
             <h2 className="text-2xl font-semibold mb-4">Create Post</h2>
             <form onSubmit={handleCreatePost} className="space-y-4">
               <div>
-                <label className="label">Image URL</label>
-                <input
-                  type="url"
-                  value={newPost.imageUrl}
-                  onChange={(e) => setNewPost({ ...newPost, imageUrl: e.target.value })}
-                  className="input-field"
-                  placeholder="https://example.com/image.jpg"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Tip: Upload your image to imgur.com and paste the URL here
-                </p>
+                <label className="label">Select Image</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary-500 transition">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    id="imageInput"
+                    required
+                  />
+                  <label htmlFor="imageInput" className="cursor-pointer">
+                    <FaImage className="mx-auto text-3xl text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600">Click to select an image</p>
+                    <p className="text-xs text-gray-500 mt-1">Max size: 5MB</p>
+                  </label>
+                </div>
+                {newPost.imageFile && (
+                  <p className="text-sm text-green-600 mt-2">✓ {newPost.imageFile.name}</p>
+                )}
               </div>
+
+              {newPost.imagePreview && (
+                <div>
+                  <label className="label">Preview</label>
+                  <img
+                    src={newPost.imagePreview}
+                    alt="Preview"
+                    className="w-full rounded-lg max-h-48 object-cover"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="label">Caption</label>
                 <textarea
@@ -270,13 +356,29 @@ const SocialFeed = () => {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setNewPost({
+                      imageFile: null,
+                      imagePreview: null,
+                      caption: '',
+                      workoutType: 'other'
+                    });
+                  }}
                   className="btn-secondary"
+                  disabled={uploading}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
-                  Create Post
+                <button type="submit" className="btn-primary flex items-center" disabled={uploading}>
+                  {uploading ? (
+                    <>
+                      <FaSpinner className="animate-spin mr-2" />
+                      Uploading...
+                    </>
+                  ) : (
+                    'Create Post'
+                  )}
                 </button>
               </div>
             </form>

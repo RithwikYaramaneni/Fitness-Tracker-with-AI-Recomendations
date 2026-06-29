@@ -23,18 +23,45 @@ const aiWorkoutRoutes = require('./routes/aiWorkout');
 // Initialize Express app
 const app = express();
 
+const normalizeOrigin = (value) => {
+  if (!value || typeof value !== 'string') {
+    return null;
+  }
+
+  try {
+    return new URL(value.trim()).origin;
+  } catch (error) {
+    return value.trim().replace(/\/$/, '');
+  }
+};
+
 // Middleware
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:5173',
+  ...(process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',') : []),
   process.env.FRONTEND_URL
-].filter(Boolean);
+].map(normalizeOrigin).filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (!normalizedOrigin) {
+    return true;
+  }
+
+  if (allowedOrigins.includes(normalizedOrigin)) {
+    return true;
+  }
+
+  return normalizedOrigin.endsWith('.vercel.app');
+};
 
 const corsOptions = {
   origin: function (origin, callback) {
     // allow requests with no origin (like mobile apps, curl) or if origin is in the whitelist
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
     return callback(new Error('Not allowed by CORS'));
